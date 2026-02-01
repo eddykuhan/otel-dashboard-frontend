@@ -29,6 +29,10 @@ import { formatDistanceToNow } from 'date-fns';
                 <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                 Live
               </span>
+              <span class="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-500 text-[10px] font-bold uppercase tracking-wider" *ngIf="connectionStatus === 'connecting'">
+                <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                Connecting
+              </span>
               <span class="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-red-500/10 text-red-500 text-[10px] font-bold uppercase tracking-wider" *ngIf="connectionStatus === 'disconnected'">
                 <span class="w-1.5 h-1.5 rounded-full bg-red-500"></span>
                 Offline
@@ -37,13 +41,6 @@ import { formatDistanceToNow } from 'date-fns';
             <p class="text-slate-500 dark:text-[#9393c8] text-sm font-normal">Real-time structured log streaming.</p>
           </div>
           <div class="flex gap-2">
-            <button (click)="toggleStreaming()" 
-                [class.bg-red-500]="isStreaming" [class.hover:bg-red-600]="isStreaming"
-                [class.bg-emerald-500]="!isStreaming" [class.hover:bg-emerald-600]="!isStreaming"
-                class="flex items-center gap-2 rounded-lg h-10 px-4 text-white text-sm font-bold transition-colors">
-              <span class="material-symbols-outlined text-xl">{{ isStreaming ? 'stop' : 'play_arrow' }}</span>
-              <span>{{ isStreaming ? 'Stop' : 'Start' }}</span>
-            </button>
             <button (click)="clearLogs()" class="flex items-center gap-2 rounded-lg h-10 px-4 bg-slate-200 dark:bg-[#242447] text-slate-700 dark:text-white text-sm font-bold hover:opacity-90 transition-opacity">
               <span class="material-symbols-outlined text-xl">delete_sweep</span>
               <span>Clear</span>
@@ -176,7 +173,6 @@ import { formatDistanceToNow } from 'date-fns';
 export class LogsComponent implements OnInit, OnDestroy {
   logs: LogEntry[] = [];
   selectedLog: LogEntry | null = null;
-  isStreaming = false;
   connectionStatus: 'disconnected' | 'connecting' | 'connected' = 'disconnected';
   private subscriptions: Subscription[] = [];
 
@@ -196,16 +192,6 @@ export class LogsComponent implements OnInit, OnDestroy {
         this.connectionStatus = status;
       })
     );
-  }
-
-  toggleStreaming(): void {
-    if (this.isStreaming) {
-      this.logStreamService.stopStreaming();
-      this.isStreaming = false;
-    } else {
-      this.logStreamService.startStreaming();
-      this.isStreaming = true;
-    }
   }
 
   clearLogs(): void {
@@ -238,6 +224,5 @@ export class LogsComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.subscriptions.forEach(s => s.unsubscribe());
-    this.logStreamService.stopStreaming();
   }
 }

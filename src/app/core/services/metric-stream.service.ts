@@ -1,39 +1,39 @@
 import { Injectable, OnDestroy } from '@angular/core';
-import { BehaviorSubject, Subject, Observable, Subscription } from 'rxjs';
+import { BehaviorSubject, Subject, Subscription } from 'rxjs';
 import { filter, bufferTime } from 'rxjs/operators';
 import { WebSocketService } from './websocket.service';
-import { LogEntry, WebSocketMessage } from '../models/otel.models';
+import { MetricEntry, WebSocketMessage } from '../models/otel.models';
 import { RingBuffer } from '../utils/ring-buffer';
 
 @Injectable({
     providedIn: 'root'
 })
-export class LogStreamService implements OnDestroy {
-    private logBuffer = new RingBuffer<LogEntry>(10000);
-    private logsSubject = new BehaviorSubject<LogEntry[]>([]);
-    private newLogSubject = new Subject<LogEntry>();
+export class MetricStreamService implements OnDestroy {
+    private metricBuffer = new RingBuffer<MetricEntry>(10000);
+    private metricsSubject = new BehaviorSubject<MetricEntry[]>([]);
+    private newMetricSubject = new Subject<MetricEntry>();
     private subscription: Subscription;
     private batchSubscription: Subscription;
     private isStreaming = false;
 
-    public logs$ = this.logsSubject.asObservable();
-    public newLog$ = this.newLogSubject.asObservable();
+    public metrics$ = this.metricsSubject.asObservable();
+    public newMetric$ = this.newMetricSubject.asObservable();
 
     constructor(private wsService: WebSocketService) {
         // Batch incoming messages at 60fps (16ms) for smooth rendering
-        this.batchSubscription = this.newLogSubject.pipe(
+        this.batchSubscription = this.newMetricSubject.pipe(
             bufferTime(16),
             filter(batch => batch.length > 0)
         ).subscribe(batch => {
-            this.logBuffer.pushMany(batch);
-            this.logsSubject.next(this.logBuffer.toArray());
+            this.metricBuffer.pushMany(batch);
+            this.metricsSubject.next(this.metricBuffer.toArray());
         });
 
         // Subscribe to WebSocket messages
         this.subscription = this.wsService.messages$.pipe(
-            filter((msg): msg is WebSocketMessage<LogEntry> => msg.channel === 'logs')
+            filter((msg): msg is WebSocketMessage<MetricEntry> => msg.channel === 'metrics')
         ).subscribe(message => {
-            this.newLogSubject.next(message.payload);
+            this.newMetricSubject.next(message.payload);
         });
         
         // Auto-start streaming
@@ -45,25 +45,25 @@ export class LogStreamService implements OnDestroy {
 
         this.isStreaming = true;
         this.wsService.connect();
-        this.wsService.subscribe('logs');
+        this.wsService.subscribe('metrics');
     }
 
     stopStreaming(): void {
         this.isStreaming = false;
-        this.wsService.unsubscribe('logs');
+        this.wsService.unsubscribe('metrics');
     }
 
-    getVisibleLogs(start: number, count: number): LogEntry[] {
-        return this.logBuffer.getRange(start, count);
+    getVisibleMetrics(start: number, count: number): MetricEntry[] {
+        return this.metricBuffer.getRange(start, count);
     }
 
     getTotalCount(): number {
-        return this.logBuffer.size;
+        return this.metricBuffer.size;
     }
 
-    clearLogs(): void {
-        this.logBuffer.clear();
-        this.logsSubject.next([]);
+    clearMetrics(): void {
+        this.metricBuffer.clear();
+        this.metricsSubject.next([]);
     }
 
     ngOnDestroy(): void {

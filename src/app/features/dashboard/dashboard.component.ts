@@ -1,7 +1,12 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ApiService } from '../../core/services/api.service';
+import { WebSocketService } from '../../core/services/websocket.service';
+import { LogStreamService } from '../../core/services/log-stream.service';
+import { TraceStreamService } from '../../core/services/trace-stream.service';
+import { MetricStreamService } from '../../core/services/metric-stream.service';
 import { HealthStats } from '../../core/models/otel.models';
+import { Subscription } from 'rxjs';
 
 @Component({
   selector: 'app-dashboard',
@@ -124,10 +129,10 @@ import { HealthStats } from '../../core/models/otel.models';
             <span class="text-xs text-slate-500 dark:text-[#92adc9] font-medium uppercase">Total Logs</span>
             <span class="material-symbols-outlined text-primary">segment</span>
           </div>
-          <div class="text-2xl font-bold">{{ stats?.stats?.logs || 0 }}</div>
-           <div class="mt-2 text-xs text-emerald-500 flex items-center gap-1">
-             <span class="material-symbols-outlined text-sm">trending_up</span>
-             <span>Live Updates</span>
+          <div class="text-2xl font-bold">{{ logCount || stats?.stats?.logs || 0 }}</div>
+           <div class="mt-2 text-xs flex items-center gap-1" [ngClass]="connectionStatus === 'connected' ? 'text-emerald-500' : 'text-slate-400'">
+             <span class="material-symbols-outlined text-sm">{{ connectionStatus === 'connected' ? 'wifi' : 'wifi_off' }}</span>
+             <span>{{ connectionStatus === 'connected' ? 'Live Streaming' : 'Connecting...' }}</span>
            </div>
         </div>
         <div class="bg-white dark:bg-[#111a22] border border-slate-200 dark:border-[#324d67] p-5 rounded-xl">
@@ -135,10 +140,10 @@ import { HealthStats } from '../../core/models/otel.models';
             <span class="text-xs text-slate-500 dark:text-[#92adc9] font-medium uppercase">Active Traces</span>
             <span class="material-symbols-outlined text-orange-400">account_tree</span>
           </div>
-          <div class="text-2xl font-bold">{{ stats?.stats?.traces || 0 }}</div>
-          <div class="mt-2 text-xs text-emerald-500 flex items-center gap-1">
-            <span class="material-symbols-outlined text-sm">check_circle</span>
-            <span>Monitoring</span>
+          <div class="text-2xl font-bold">{{ traceCount || stats?.stats?.traces || 0 }}</div>
+          <div class="mt-2 text-xs flex items-center gap-1" [ngClass]="connectionStatus === 'connected' ? 'text-emerald-500' : 'text-slate-400'">
+            <span class="material-symbols-outlined text-sm">{{ connectionStatus === 'connected' ? 'wifi' : 'wifi_off' }}</span>
+            <span>{{ connectionStatus === 'connected' ? 'Live Streaming' : 'Connecting...' }}</span>
           </div>
         </div>
         <div class="bg-white dark:bg-[#111a22] border border-slate-200 dark:border-[#324d67] p-5 rounded-xl">
@@ -146,9 +151,10 @@ import { HealthStats } from '../../core/models/otel.models';
              <span class="text-xs text-slate-500 dark:text-[#92adc9] font-medium uppercase">Metrics Count</span>
              <span class="material-symbols-outlined text-indigo-400">monitoring</span>
           </div>
-          <div class="text-2xl font-bold">{{ stats?.stats?.metrics || 0 }}</div>
-          <div class="mt-2 w-full bg-slate-100 dark:bg-[#233648] h-1.5 rounded-full overflow-hidden">
-            <div class="bg-primary h-full w-[100%]"></div>
+          <div class="text-2xl font-bold">{{ metricCount || stats?.stats?.metrics || 0 }}</div>
+          <div class="mt-2 text-xs flex items-center gap-1" [ngClass]="connectionStatus === 'connected' ? 'text-emerald-500' : 'text-slate-400'">
+            <span class="material-symbols-outlined text-sm">{{ connectionStatus === 'connected' ? 'wifi' : 'wifi_off' }}</span>
+            <span>{{ connectionStatus === 'connected' ? 'Live Streaming' : 'Connecting...' }}</span>
           </div>
         </div>
       </div>
@@ -158,14 +164,55 @@ import { HealthStats } from '../../core/models/otel.models';
     :host { display: block; height: 100%; }
   `]
 })
-export class DashboardComponent implements OnInit {
+export class DashboardComponent implements OnInit, OnDestroy {
   stats: HealthStats | null = null;
+  connectionStatus: 'disconnected' | 'connecting' | 'connected' = 'disconnected';
+  logCount = 0;
+  traceCount = 0;
+  metricCount = 0;
+  private subscriptions: Subscription[] = [];
 
-  constructor(private apiService: ApiService) { }
+  constructor(
+    private apiService: ApiService,
+    private wsService: WebSocketService,
+    private logStreamService: LogStreamService,
+    private traceStreamService: TraceStreamService,
+    private metricStreamService: MetricStreamService
+  ) { }
 
   ngOnInit(): void {
+    // Subscribe to connection status
+    this.subscriptions.push(
+      this.wsService.status$.subscribe(status => {
+        this.connectionStatus = status;
+      })
+    );
+    
+    // Subscribe to real-time counts from stream services
+    this.subscriptions.push(
+      this.logStreamService.logs$.subscribe(logs => {
+        this.logCount = logs.length;
+      })
+    );
+    
+    this.subscriptions.push(
+      this.traceStreamService.traces$.subscribe(traces => {
+        this.traceCount = traces.length;
+      })
+    );
+    
+    this.subscriptions.push(
+      this.metricStreamService.metrics$.subscribe(metrics => {
+        this.metricCount = metrics.length;
+      })
+    );
+    
+    // Also load stats from API for backend counts
     this.loadStats();
-    setInterval(() => this.loadStats(), 5000);
+  }
+  
+  ngOnDestroy(): void {
+    this.subscriptions.forEach(s => s.unsubscribe());
   }
 
   private loadStats(): void {

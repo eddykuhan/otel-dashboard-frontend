@@ -1,7 +1,10 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ApiService } from '../../core/services/api.service';
+import { TraceStreamService } from '../../core/services/trace-stream.service';
+import { WebSocketService } from '../../core/services/websocket.service';
 import { TraceSpan, SpanKind } from '../../core/models/otel.models';
+import { Subscription } from 'rxjs';
 
 @Component({
   selector: 'app-traces',
@@ -20,13 +23,27 @@ import { TraceSpan, SpanKind } from '../../core/models/otel.models';
         </div>
         <div class="px-8 pb-6 flex flex-wrap justify-between items-end gap-3">
           <div class="flex flex-col gap-1">
-            <h1 class="text-slate-900 dark:text-white text-3xl font-black leading-tight tracking-tight">Traces</h1>
-            <p class="text-slate-500 dark:text-[#9393c8] text-sm font-normal">Monitor and diagnose distributed traces across services.</p>
+            <div class="flex items-center gap-2">
+              <h1 class="text-slate-900 dark:text-white text-3xl font-black leading-tight tracking-tight">Traces</h1>
+              <span class="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 text-[10px] font-bold uppercase tracking-wider" *ngIf="connectionStatus === 'connected'">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                Live
+              </span>
+              <span class="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-500 text-[10px] font-bold uppercase tracking-wider" *ngIf="connectionStatus === 'connecting'">
+                <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                Connecting
+              </span>
+              <span class="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-red-500/10 text-red-500 text-[10px] font-bold uppercase tracking-wider" *ngIf="connectionStatus === 'disconnected'">
+                <span class="w-1.5 h-1.5 rounded-full bg-red-500"></span>
+                Offline
+              </span>
+            </div>
+            <p class="text-slate-500 dark:text-[#9393c8] text-sm font-normal">Real-time distributed trace monitoring.</p>
           </div>
           <div class="flex gap-2">
-            <button (click)="refreshTraces()" class="flex items-center gap-2 rounded-lg h-10 px-4 bg-slate-200 dark:bg-[#242447] text-slate-700 dark:text-white text-sm font-bold hover:opacity-90 transition-opacity">
-              <span class="material-symbols-outlined text-xl">refresh</span>
-              <span>Refresh</span>
+            <button (click)="clearTraces()" class="flex items-center gap-2 rounded-lg h-10 px-4 bg-slate-200 dark:bg-[#242447] text-slate-700 dark:text-white text-sm font-bold hover:opacity-90 transition-opacity">
+              <span class="material-symbols-outlined text-xl">delete_sweep</span>
+              <span>Clear</span>
             </button>
           </div>
         </div>
@@ -202,7 +219,7 @@ import { TraceSpan, SpanKind } from '../../core/models/otel.models';
     .rotate-90 { transform: rotate(90deg); }
   `]
 })
-export class TracesComponent implements OnInit {
+export class TracesComponent implements OnInit, OnDestroy {
   traces: TraceSpan[] = [];
   selectedTrace: TraceSpan | null = null;
   traceSpans: TraceSpan[] = [];
@@ -211,23 +228,67 @@ export class TracesComponent implements OnInit {
   maxDuration = 1000;
   expandedSpans: Set<string> = new Set();
   spanTree: TraceSpan[] = [];
+  connectionStatus: 'disconnected' | 'connecting' | 'connected' = 'disconnected';
+  private subscriptions: Subscription[] = [];
   protected readonly SpanKind = SpanKind;
 
-  constructor(private apiService: ApiService) { }
+  constructor(
+    private apiService: ApiService,
+    private traceStreamService: TraceStreamService,
+    private wsService: WebSocketService
+  ) { }
 
   ngOnInit(): void {
-    this.refreshTraces();
+    // Subscribe to real-time trace updates
+    this.subscriptions.push(
+      this.traceStreamService.traces$.subscribe(traces => {
+        // Group by traceId and get root spans (no parentSpanId)
+        const traceMap = new Map<string, TraceSpan>();
+        traces.forEach(span => {
+          if (!span.parentSpanId || !traceMap.has(span.traceId)) {
+            traceMap.set(span.traceId, span);
+          }
+        });
+        this.traces = Array.from(traceMap.values())
+          .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
+        this.maxDuration = Math.max(...this.traces.map(t => t.durationMs), 100);
+      })
+    );
+    
+    this.subscriptions.push(
+      this.wsService.status$.subscribe(status => {
+        this.connectionStatus = status;
+      })
+    );
+    
+    // Also load initial data from API
+    this.loadInitialTraces();
+  }
+  
+  ngOnDestroy(): void {
+    this.subscriptions.forEach(s => s.unsubscribe());
   }
 
-  refreshTraces(): void {
+  private loadInitialTraces(): void {
     this.apiService.getTraces({ limit: 50 }).subscribe({
       next: (traces) => {
         // Map trace wrapper to rootSpan
-        this.traces = traces.map(t => t.rootSpan);
+        const apiTraces = traces.map(t => t.rootSpan);
+        // Merge with streaming traces
+        const traceMap = new Map<string, TraceSpan>();
+        apiTraces.forEach(span => traceMap.set(span.traceId, span));
+        this.traces.forEach(span => traceMap.set(span.traceId, span));
+        this.traces = Array.from(traceMap.values())
+          .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
         this.maxDuration = Math.max(...this.traces.map(t => t.durationMs), 100);
       },
       error: (err) => console.error('Failed to load traces:', err)
     });
+  }
+
+  clearTraces(): void {
+    this.traceStreamService.clearTraces();
+    this.selectedTrace = null;
   }
 
   selectTrace(trace: TraceSpan): void {

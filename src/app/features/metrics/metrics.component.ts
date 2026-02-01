@@ -2,6 +2,8 @@ import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../core/services/api.service';
+import { MetricStreamService } from '../../core/services/metric-stream.service';
+import { WebSocketService } from '../../core/services/websocket.service';
 import { MetricEntry, MetricType } from '../../core/models/otel.models';
 import { NgxEchartsModule } from 'ngx-echarts';
 import { EChartsOption, SeriesOption } from 'echarts';
@@ -68,8 +70,18 @@ interface EndpointData {
           <div class="min-w-72">
             <div class="flex items-center gap-2 mb-1">
               <h1 class="text-slate-900 dark:text-white text-3xl font-black tracking-tight">Metrics</h1>
-              <span class="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span class="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">Live</span>
+              <span class="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 text-[10px] font-bold uppercase tracking-wider" *ngIf="connectionStatus === 'connected'">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                Live
+              </span>
+              <span class="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-500 text-[10px] font-bold uppercase tracking-wider" *ngIf="connectionStatus === 'connecting'">
+                <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                Connecting
+              </span>
+              <span class="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-red-500/10 text-red-500 text-[10px] font-bold uppercase tracking-wider" *ngIf="connectionStatus === 'disconnected'">
+                <span class="w-1.5 h-1.5 rounded-full bg-red-500"></span>
+                Offline
+              </span>
             </div>
             <p class="text-slate-500 dark:text-slate-400 text-sm">Real-time telemetry visualization.</p>
           </div>
@@ -90,8 +102,9 @@ interface EndpointData {
               <span class="material-symbols-outlined text-lg">download</span>
               Export
             </button>
-            <button (click)="loadMetrics()" class="p-2 text-slate-500 hover:text-primary transition-colors">
-              <span class="material-symbols-outlined">refresh</span>
+            <button (click)="clearMetrics()" class="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 px-4 h-9 rounded-lg text-sm font-bold transition-colors">
+              <span class="material-symbols-outlined text-lg">delete_sweep</span>
+              Clear
             </button>
           </div>
         </header>
@@ -195,6 +208,7 @@ export class MetricsComponent implements OnInit, OnDestroy {
   timeRanges: string[] = ['5m', '1h', '6h', '24h'];
   services: string[] = ['webfrontend', 'apiservice', 'orders-db'];
   hosts: string[] = ['pod-xyz-123', 'pod-abc-456'];
+  connectionStatus: 'disconnected' | 'connecting' | 'connected' = 'disconnected';
   
   mainChartOptions: EChartsOption = {};
   cpuChartOptions: EChartsOption = {};
@@ -214,23 +228,42 @@ export class MetricsComponent implements OnInit, OnDestroy {
   
   lastRefreshTime: string = '';
 
-  private refreshInterval: any;
-  private subscription: Subscription | null = null;
+  private subscriptions: Subscription[] = [];
 
-  constructor(private apiService: ApiService) { }
+  constructor(
+    private apiService: ApiService,
+    private metricStreamService: MetricStreamService,
+    private wsService: WebSocketService
+  ) { }
 
   ngOnInit(): void {
     this.updateLastRefreshTime();
+    
+    // Subscribe to real-time metric updates
+    this.subscriptions.push(
+      this.metricStreamService.metrics$.subscribe(metrics => {
+        // Merge streaming metrics with existing
+        const metricMap = new Map<string, MetricEntry>();
+        this.rawMetrics.forEach(m => metricMap.set(`${m.name}-${m.serviceName}-${m.timestamp}`, m));
+        metrics.forEach(m => metricMap.set(`${m.name}-${m.serviceName}-${m.timestamp}`, m));
+        this.rawMetrics = Array.from(metricMap.values());
+        this.processMetrics();
+        this.updateLastRefreshTime();
+      })
+    );
+    
+    this.subscriptions.push(
+      this.wsService.status$.subscribe(status => {
+        this.connectionStatus = status;
+      })
+    );
+    
+    // Load initial data from API
     this.loadMetrics();
-    this.refreshInterval = setInterval(() => {
-      this.loadMetrics();
-      this.updateLastRefreshTime();
-    }, 3000);
   }
 
   ngOnDestroy(): void {
-    if (this.refreshInterval) clearInterval(this.refreshInterval);
-    this.subscription?.unsubscribe();
+    this.subscriptions.forEach(s => s.unsubscribe());
   }
 
   updateLastRefreshTime(): void {
@@ -239,13 +272,16 @@ export class MetricsComponent implements OnInit, OnDestroy {
   }
 
   loadMetrics(): void {
-    this.subscription?.unsubscribe();
-    this.subscription = this.apiService.getMetrics({ 
+    this.apiService.getMetrics({ 
       limit: 2000,
       serviceName: this.selectedService || undefined
     }).subscribe({
       next: (metrics) => {
-        this.rawMetrics = metrics;
+        // Merge with existing streaming metrics
+        const metricMap = new Map<string, MetricEntry>();
+        this.rawMetrics.forEach(m => metricMap.set(`${m.name}-${m.serviceName}-${m.timestamp}`, m));
+        metrics.forEach(m => metricMap.set(`${m.name}-${m.serviceName}-${m.timestamp}`, m));
+        this.rawMetrics = Array.from(metricMap.values());
         this.processMetrics();
       },
       error: (err) => {
@@ -254,6 +290,14 @@ export class MetricsComponent implements OnInit, OnDestroy {
         this.loadMockData();
       }
     });
+  }
+
+  clearMetrics(): void {
+    this.metricStreamService.clearMetrics();
+    this.rawMetrics = [];
+    this.instrumentNames = [];
+    this.selectedMetricName = '';
+    this.processMetrics();
   }
 
   private loadMockData(): void {
