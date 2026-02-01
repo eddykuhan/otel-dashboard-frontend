@@ -53,6 +53,12 @@ export class TraceStreamService implements OnDestroy {
         this.wsService.unsubscribe('traces');
     }
 
+    addHistory(traces: TraceSpan[]): void {
+        if (!traces || traces.length === 0) return;
+        this.traceBuffer.pushMany(traces);
+        this.tracesSubject.next(this.traceBuffer.toArray());
+    }
+
     getVisibleTraces(start: number, count: number): TraceSpan[] {
         return this.traceBuffer.getRange(start, count);
     }

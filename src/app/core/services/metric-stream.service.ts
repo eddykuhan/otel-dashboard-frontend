@@ -53,6 +53,12 @@ export class MetricStreamService implements OnDestroy {
         this.wsService.unsubscribe('metrics');
     }
 
+    addHistory(metrics: MetricEntry[]): void {
+        if (!metrics || metrics.length === 0) return;
+        this.metricBuffer.pushMany(metrics);
+        this.metricsSubject.next(this.metricBuffer.toArray());
+    }
+
     getVisibleMetrics(start: number, count: number): MetricEntry[] {
         return this.metricBuffer.getRange(start, count);
     }

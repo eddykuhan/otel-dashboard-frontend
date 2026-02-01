@@ -1,5 +1,6 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { ApiService } from '../../core/services/api.service';
 import { LogStreamService } from '../../core/services/log-stream.service';
 import { WebSocketService } from '../../core/services/websocket.service';
 import { LogEntry, LogLevel } from '../../core/models/otel.models';
@@ -177,6 +178,7 @@ export class LogsComponent implements OnInit, OnDestroy {
   private subscriptions: Subscription[] = [];
 
   constructor(
+    private apiService: ApiService,
     private logStreamService: LogStreamService,
     private wsService: WebSocketService
   ) { }
@@ -192,6 +194,16 @@ export class LogsComponent implements OnInit, OnDestroy {
         this.connectionStatus = status;
       })
     );
+    this.loadInitialLogs();
+  }
+
+  private loadInitialLogs(): void {
+    this.apiService.getLogs({ limit: 1000 }).subscribe({
+      next: (logs) => {
+        this.logStreamService.addHistory(logs);
+      },
+      error: (err) => console.error('Failed to load logs:', err)
+    });
   }
 
   clearLogs(): void {

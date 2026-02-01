@@ -53,6 +53,12 @@ export class LogStreamService implements OnDestroy {
         this.wsService.unsubscribe('logs');
     }
 
+    addHistory(logs: LogEntry[]): void {
+        if (!logs || logs.length === 0) return;
+        this.logBuffer.pushMany(logs);
+        this.logsSubject.next(this.logBuffer.toArray());
+    }
+
     getVisibleLogs(start: number, count: number): LogEntry[] {
         return this.logBuffer.getRange(start, count);
     }

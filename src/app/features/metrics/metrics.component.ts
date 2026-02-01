@@ -242,11 +242,7 @@ export class MetricsComponent implements OnInit, OnDestroy {
     // Subscribe to real-time metric updates
     this.subscriptions.push(
       this.metricStreamService.metrics$.subscribe(metrics => {
-        // Merge streaming metrics with existing
-        const metricMap = new Map<string, MetricEntry>();
-        this.rawMetrics.forEach(m => metricMap.set(`${m.name}-${m.serviceName}-${m.timestamp}`, m));
-        metrics.forEach(m => metricMap.set(`${m.name}-${m.serviceName}-${m.timestamp}`, m));
-        this.rawMetrics = Array.from(metricMap.values());
+        this.rawMetrics = metrics;
         this.processMetrics();
         this.updateLastRefreshTime();
       })
@@ -277,12 +273,7 @@ export class MetricsComponent implements OnInit, OnDestroy {
       serviceName: this.selectedService || undefined
     }).subscribe({
       next: (metrics) => {
-        // Merge with existing streaming metrics
-        const metricMap = new Map<string, MetricEntry>();
-        this.rawMetrics.forEach(m => metricMap.set(`${m.name}-${m.serviceName}-${m.timestamp}`, m));
-        metrics.forEach(m => metricMap.set(`${m.name}-${m.serviceName}-${m.timestamp}`, m));
-        this.rawMetrics = Array.from(metricMap.values());
-        this.processMetrics();
+        this.metricStreamService.addHistory(metrics);
       },
       error: (err) => {
         console.error('Failed to load metrics:', err);

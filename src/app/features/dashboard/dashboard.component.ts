@@ -188,26 +188,26 @@ export class DashboardComponent implements OnInit, OnDestroy {
       })
     );
     
-    // Subscribe to real-time counts from stream services
+    // Subscribe to real-time updates and increment counts
     this.subscriptions.push(
-      this.logStreamService.logs$.subscribe(logs => {
-        this.logCount = logs.length;
+      this.logStreamService.newLog$.subscribe(() => {
+        this.logCount++;
       })
     );
     
     this.subscriptions.push(
-      this.traceStreamService.traces$.subscribe(traces => {
-        this.traceCount = traces.length;
+      this.traceStreamService.newTrace$.subscribe(() => {
+        this.traceCount++;
       })
     );
     
     this.subscriptions.push(
-      this.metricStreamService.metrics$.subscribe(metrics => {
-        this.metricCount = metrics.length;
+      this.metricStreamService.newMetric$.subscribe(() => {
+        this.metricCount++;
       })
     );
     
-    // Also load stats from API for backend counts
+    // Load initial stats from API
     this.loadStats();
   }
   
@@ -217,7 +217,15 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   private loadStats(): void {
     this.apiService.getHealth().subscribe({
-      next: (stats) => this.stats = stats,
+      next: (stats) => {
+        this.stats = stats;
+        // Initialize counts with backend values
+        if (stats.stats) {
+          this.logCount = stats.stats.logs;
+          this.traceCount = stats.stats.traces;
+          this.metricCount = stats.stats.metrics;
+        }
+      },
       error: (err) => console.error('Failed to load health stats:', err)
     });
   }
