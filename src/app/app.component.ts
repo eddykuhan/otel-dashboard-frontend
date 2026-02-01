@@ -1,6 +1,7 @@
 import { Component } from '@angular/core';
 import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
 import { CommonModule } from '@angular/common';
+import { ThemeService } from './core/services/theme.service';
 
 @Component({
   selector: 'app-root',
@@ -15,29 +16,35 @@ import { CommonModule } from '@angular/common';
             <span class="material-symbols-outlined">hub</span>
           </div>
           <div>
-            <h1 class="text-base font-bold leading-none">Aspire</h1>
-            <p class="text-xs text-slate-500 dark:text-[#92adc9] mt-1">Distributed Dashboard</p>
+            <h1 class="text-base font-bold leading-none">Prism</h1>
+            <p class="text-xs text-slate-500 dark:text-[#92adc9] mt-1">Telemetry Dashboard</p>
           </div>
         </div>
         <nav class="flex-1 px-3 space-y-1 mt-4">
           <!-- Resources link removed -->
-          <a routerLink="/logs" routerLinkActive="bg-primary text-white"
-             class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-[#92adc9] hover:bg-slate-100 dark:hover:bg-[#233648] transition-colors group">
+          <a routerLink="/logs" routerLinkActive="bg-primary text-black"
+             class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-[#92adc9] hover:bg-slate-100 dark:hover:bg-[#233648] transition-colors group [&.router-link-active]:hover:bg-primary [&.router-link-active]:text-black">
              <span class="material-symbols-outlined" routerLinkActive="fill-icon">list_alt</span>
             <span class="text-sm font-medium">Logs</span>
           </a>
-          <a routerLink="/traces" routerLinkActive="bg-primary text-white"
-             class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-[#92adc9] hover:bg-slate-100 dark:hover:bg-[#233648] transition-colors group">
+          <a routerLink="/traces" routerLinkActive="bg-primary text-black"
+             class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-[#92adc9] hover:bg-slate-100 dark:hover:bg-[#233648] transition-colors group [&.router-link-active]:hover:bg-primary [&.router-link-active]:text-black">
              <span class="material-symbols-outlined" routerLinkActive="fill-icon">account_tree</span>
             <span class="text-sm font-medium">Traces</span>
           </a>
-          <a routerLink="/metrics" routerLinkActive="bg-primary text-white"
-             class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-[#92adc9] hover:bg-slate-100 dark:hover:bg-[#233648] transition-colors group">
+          <a routerLink="/metrics" routerLinkActive="bg-primary text-black"
+             class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-[#92adc9] hover:bg-slate-100 dark:hover:bg-[#233648] transition-colors group [&.router-link-active]:hover:bg-primary [&.router-link-active]:text-black">
              <span class="material-symbols-outlined" routerLinkActive="fill-icon">monitoring</span>
             <span class="text-sm font-medium">Metrics</span>
           </a>
         </nav>
-        <div class="p-4 border-t border-slate-200 dark:border-slate-800">
+        <div class="p-4 border-t border-slate-200 dark:border-slate-800 space-y-3">
+          <button 
+            (click)="toggleTheme()"
+            class="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-[#92adc9] hover:bg-slate-100 dark:hover:bg-[#233648] transition-colors">
+            <span class="material-symbols-outlined">{{ (theme$ | async) === 'dark' ? 'light_mode' : 'dark_mode' }}</span>
+            <span class="text-sm font-medium">{{ (theme$ | async) === 'dark' ? 'Light' : 'Dark' }} Mode</span>
+          </button>
           <div class="flex items-center gap-3 p-2">
             <div class="size-8 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
                <!-- Placeholder avatar since external images might break or be slow -->
@@ -60,5 +67,15 @@ import { CommonModule } from '@angular/common';
   styles: []
 })
 export class AppComponent {
-  title = 'OTEL Dashboard';
+  title = 'Prism - Telemetry Dashboard';
+
+  constructor(public themeService: ThemeService) {}
+
+  get theme$() {
+    return this.themeService.theme$;
+  }
+
+  toggleTheme(): void {
+    this.themeService.toggleTheme();
+  }
 }

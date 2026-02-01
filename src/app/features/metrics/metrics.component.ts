@@ -188,7 +188,7 @@ interface EndpointData {
         </div>
       </div>
       <div class="flex items-center gap-4">
-        <span>Aspire Dashboard v8.0.0</span>
+        <span>Prism v1.0.0</span>
         <span class="text-slate-400">Last Refresh: {{ lastRefreshTime }}</span>
       </div>
     </footer>
