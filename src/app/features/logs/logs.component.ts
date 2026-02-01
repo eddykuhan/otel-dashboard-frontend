@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ApiService } from '../../core/services/api.service';
 import { LogStreamService } from '../../core/services/log-stream.service';
 import { WebSocketService } from '../../core/services/websocket.service';
+import { AIAssistantService } from '../../core/services/ai-assistant.service';
 import { LogEntry, LogLevel } from '../../core/models/otel.models';
 import { Subscription } from 'rxjs';
 import { formatDistanceToNow } from 'date-fns';
@@ -95,12 +96,20 @@ import { formatDistanceToNow } from 'date-fns';
 
         <!-- Details Panel -->
         <aside *ngIf="selectedLog" class="w-96 bg-white dark:bg-[#101922] border-l border-slate-200 dark:border-slate-800 overflow-y-auto custom-scrollbar p-6 shadow-xl z-20">
-          <div class="flex justify-between items-start mb-6">
+          <div class="flex justify-between items-start mb-4">
             <h3 class="text-lg font-bold text-slate-900 dark:text-white">Log Details</h3>
             <button (click)="selectedLog = null" class="text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors">
               <span class="material-symbols-outlined">close</span>
             </button>
           </div>
+          
+          <!-- AI Explain Button -->
+          <button 
+            (click)="explainLog(selectedLog)"
+            class="w-full mb-6 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-medium text-sm hover:from-blue-600 hover:to-indigo-700 transition-all shadow-md hover:shadow-lg">
+            <span class="material-symbols-outlined text-lg">auto_awesome</span>
+            <span>Explain with Copilot</span>
+          </button>
 
           <div class="space-y-6">
             <div>
@@ -180,7 +189,8 @@ export class LogsComponent implements OnInit, OnDestroy {
   constructor(
     private apiService: ApiService,
     private logStreamService: LogStreamService,
-    private wsService: WebSocketService
+    private wsService: WebSocketService,
+    private aiService: AIAssistantService
   ) { }
 
   ngOnInit(): void {
@@ -232,6 +242,10 @@ export class LogsComponent implements OnInit, OnDestroy {
 
   getAttributeKeys(attributes: any): string[] {
     return attributes ? Object.keys(attributes) : [];
+  }
+
+  explainLog(log: LogEntry): void {
+    this.aiService.explainLog(log);
   }
 
   ngOnDestroy(): void {

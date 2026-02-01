@@ -234,34 +234,50 @@
                             <span class="font-mono text-slate-600 dark:text-slate-400 ml-1">{{ span.parentSpanId }}</span>
                           </div>
                         </div>
+
+                        <!-- Explain with Copilot -->
+                        <div class="mt-4 pt-3 border-t border-slate-200 dark:border-slate-700">
+                          <button (click)="explainSpan(span); $event.stopPropagation()"
+                                  class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gradient-to-r from-violet-500 to-purple-600 text-white text-xs font-medium hover:opacity-90 transition-opacity">
+                            <span class="material-symbols-outlined text-sm">auto_awesome</span>
+                            Explain with Copilot
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <!-- Legend -->
-              <div class="mt-6 pt-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-center gap-6 text-[10px] text-slate-500">
-                <div class="flex items-center gap-1.5">
-                  <span class="material-symbols-outlined text-blue-500 text-sm">dns</span>
-                  <span>Server</span>
+              <!-- Legend and Actions -->
+              <div class="mt-6 pt-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                <div class="flex items-center gap-6 text-[10px] text-slate-500">
+                  <div class="flex items-center gap-1.5">
+                    <span class="material-symbols-outlined text-blue-500 text-sm">dns</span>
+                    <span>Server</span>
+                  </div>
+                  <div class="flex items-center gap-1.5">
+                    <span class="material-symbols-outlined text-emerald-500 text-sm">language</span>
+                    <span>HTTP Client</span>
+                  </div>
+                  <div class="flex items-center gap-1.5">
+                    <span class="material-symbols-outlined text-violet-500 text-sm">storage</span>
+                    <span>Database</span>
+                  </div>
+                  <div class="flex items-center gap-1.5">
+                    <span class="material-symbols-outlined text-amber-500 text-sm">send</span>
+                    <span>Message</span>
+                  </div>
+                  <div class="flex items-center gap-1.5">
+                    <span class="material-symbols-outlined text-slate-400 text-sm">code</span>
+                    <span>Internal</span>
+                  </div>
                 </div>
-                <div class="flex items-center gap-1.5">
-                  <span class="material-symbols-outlined text-emerald-500 text-sm">language</span>
-                  <span>HTTP Client</span>
-                </div>
-                <div class="flex items-center gap-1.5">
-                  <span class="material-symbols-outlined text-violet-500 text-sm">storage</span>
-                  <span>Database</span>
-                </div>
-                <div class="flex items-center gap-1.5">
-                  <span class="material-symbols-outlined text-amber-500 text-sm">send</span>
-                  <span>Message</span>
-                </div>
-                <div class="flex items-center gap-1.5">
-                  <span class="material-symbols-outlined text-slate-400 text-sm">code</span>
-                  <span>Internal</span>
-                </div>
+                <button (click)="explainTrace(trace)"
+                        class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gradient-to-r from-violet-500 to-purple-600 text-white text-xs font-medium hover:opacity-90 transition-opacity">
+                  <span class="material-symbols-outlined text-sm">auto_awesome</span>
+                  Analyze Trace with Copilot
+                </button>
               </div>
             </div>
 

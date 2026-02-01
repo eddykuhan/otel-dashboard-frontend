@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../core/services/api.service';
 import { TraceStreamService } from '../../core/services/trace-stream.service';
 import { WebSocketService } from '../../core/services/websocket.service';
+import { AIAssistantService } from '../../core/services/ai-assistant.service';
 import { TraceSpan, SpanKind, SpanStatus } from '../../core/models/otel.models';
 import { Subscription } from 'rxjs';
 
@@ -57,7 +58,8 @@ export class TracesComponent implements OnInit, OnDestroy {
   constructor(
     private apiService: ApiService,
     private traceStreamService: TraceStreamService,
-    private wsService: WebSocketService
+    private wsService: WebSocketService,
+    private aiService: AIAssistantService
   ) { }
 
   ngOnInit(): void {
@@ -402,5 +404,21 @@ export class TracesComponent implements OnInit, OnDestroy {
 
   trackBySpanId(index: number, span: TraceSpan): string {
     return span.spanId;
+  }
+
+  explainTrace(trace: TraceGroup): void {
+    // Pass the trace data including span count
+    this.aiService.explainTrace({
+      ...trace.rootSpan,
+      spanCount: trace.spanCount,
+      hasError: trace.hasError,
+      httpMethod: trace.httpMethod,
+      endpoint: trace.endpoint,
+      statusCode: trace.statusCode
+    });
+  }
+
+  explainSpan(span: TraceSpan): void {
+    this.aiService.explainSpan(span);
   }
 }

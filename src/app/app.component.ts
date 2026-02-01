@@ -2,11 +2,13 @@ import { Component } from '@angular/core';
 import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { ThemeService } from './core/services/theme.service';
+import { AIAssistantService } from './core/services/ai-assistant.service';
+import { AIPanelComponent } from './shared/components/ai-panel/ai-panel.component';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, RouterOutlet, RouterLink, RouterLinkActive],
+  imports: [CommonModule, RouterOutlet, RouterLink, RouterLinkActive, AIPanelComponent],
   template: `
     <div class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen flex font-display">
       <!-- Sidebar Navigation -->
@@ -37,6 +39,15 @@ import { ThemeService } from './core/services/theme.service';
              <span class="material-symbols-outlined" routerLinkActive="fill-icon">monitoring</span>
             <span class="text-sm font-medium">Metrics</span>
           </a>
+          
+          <!-- Copilot Button -->
+          <button 
+            (click)="openCopilot()"
+            class="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-[#92adc9] hover:bg-slate-100 dark:hover:bg-[#233648] transition-colors mt-4 bg-gradient-to-r from-blue-500/10 to-indigo-500/10 border border-blue-200 dark:border-blue-800">
+            <span class="material-symbols-outlined text-blue-600 dark:text-blue-400">auto_awesome</span>
+            <span class="text-sm font-medium text-blue-700 dark:text-blue-300">Copilot</span>
+            <span class="ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300">AI</span>
+          </button>
         </nav>
         <div class="p-4 border-t border-slate-200 dark:border-slate-800 space-y-3">
           <button 
@@ -63,13 +74,19 @@ import { ThemeService } from './core/services/theme.service';
         <router-outlet></router-outlet>
       </main>
     </div>
+    
+    <!-- AI Panel -->
+    <app-ai-panel></app-ai-panel>
   `,
   styles: []
 })
 export class AppComponent {
   title = 'Prism - Telemetry Dashboard';
 
-  constructor(public themeService: ThemeService) {}
+  constructor(
+    public themeService: ThemeService,
+    private aiService: AIAssistantService
+  ) {}
 
   get theme$() {
     return this.themeService.theme$;
@@ -77,5 +94,9 @@ export class AppComponent {
 
   toggleTheme(): void {
     this.themeService.toggleTheme();
+  }
+
+  openCopilot(): void {
+    this.aiService.open();
   }
 }
