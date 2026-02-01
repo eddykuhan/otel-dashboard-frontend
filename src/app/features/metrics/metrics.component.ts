@@ -136,9 +136,14 @@ interface EndpointData {
            <div class="bg-white dark:bg-[#101922] border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm">
              <div class="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
                <h3 class="text-sm font-bold">Active Tags Breakdown</h3>
-               <button class="text-primary text-xs font-bold hover:underline">View All</button>
+               <span class="text-slate-400 text-xs" *ngIf="endpointData.length > 0">{{ endpointData.length }} endpoints</span>
              </div>
-             <table class="w-full text-left text-sm">
+             <div *ngIf="endpointData.length === 0" class="p-8 text-center text-slate-400">
+               <span class="material-symbols-outlined text-3xl mb-2 block">monitoring</span>
+               <p class="text-sm">No HTTP endpoint data available</p>
+               <p class="text-xs mt-1">Endpoint breakdown will appear when HTTP metrics are received</p>
+             </div>
+             <table *ngIf="endpointData.length > 0" class="w-full text-left text-sm">
                <thead class="bg-slate-50 dark:bg-slate-800/50 text-slate-500 text-[10px] font-bold uppercase tracking-wider">
                  <tr>
                    <th class="px-4 py-3">Endpoint</th>
@@ -216,15 +221,11 @@ export class MetricsComponent implements OnInit, OnDestroy {
   
   currentMetricValue: string = '';
   cpuUsage: number = 0;
-  avgCpuUsage: number = 18.5;
-  memoryUsage: number = 1024;
-  peakMemoryUsage: number = 1240;
+  avgCpuUsage: number = 0;
+  memoryUsage: number = 0;
+  peakMemoryUsage: number = 0;
   
-  endpointData: EndpointData[] = [
-    { endpoint: '/api/products', requests: 4203, avgLatency: 120, errorRate: 0.12 },
-    { endpoint: '/api/orders', requests: 1120, avgLatency: 450, errorRate: 2.4 },
-    { endpoint: '/health', requests: 840, avgLatency: 12, errorRate: 0 }
-  ];
+  endpointData: EndpointData[] = [];
   
   lastRefreshTime: string = '';
 
@@ -369,6 +370,71 @@ export class MetricsComponent implements OnInit, OnDestroy {
     // Update Secondary Charts
     this.updateCpuChart();
     this.updateMemoryChart();
+    
+    // Update endpoint breakdown from HTTP metrics
+    this.updateEndpointData();
+  }
+
+  private updateEndpointData(): void {
+    // Look for HTTP request/duration metrics that have endpoint/route attributes
+    const httpMetrics = this.rawMetrics.filter(m => 
+      m.name.includes('http') && 
+      (m.name.includes('request') || m.name.includes('duration') || m.name.includes('server'))
+    );
+
+    if (httpMetrics.length === 0) {
+      this.endpointData = [];
+      return;
+    }
+
+    // Group metrics by endpoint (route/path/url)
+    const endpointMap = new Map<string, { 
+      requests: number; 
+      totalLatency: number; 
+      errors: number; 
+      latencies: number[];
+    }>();
+
+    httpMetrics.forEach(metric => {
+      const attrs = metric.attributes || {};
+      const endpoint = attrs['http.route'] || attrs['url.path'] || attrs['http.target'] || attrs['http.url'] || 'unknown';
+      const statusCode = attrs['http.status_code'] || attrs['http.response.status_code'] || '';
+      
+      if (!endpointMap.has(endpoint)) {
+        endpointMap.set(endpoint, { requests: 0, totalLatency: 0, errors: 0, latencies: [] });
+      }
+      
+      const data = endpointMap.get(endpoint)!;
+      data.requests++;
+      
+      // Handle latency/duration value
+      if (metric.name.includes('duration') || metric.name.includes('latency')) {
+        const latencyMs = metric.value > 1000 ? metric.value : metric.value; // Assume already in ms or convert
+        data.totalLatency += latencyMs;
+        data.latencies.push(latencyMs);
+      }
+      
+      // Count errors (5xx status codes)
+      if (statusCode.toString().startsWith('5') || statusCode.toString().startsWith('4')) {
+        data.errors++;
+      }
+    });
+
+    // Convert to endpoint data array
+    this.endpointData = Array.from(endpointMap.entries())
+      .map(([endpoint, data]) => ({
+        endpoint,
+        requests: data.requests,
+        avgLatency: data.latencies.length > 0 
+          ? Math.round(data.totalLatency / data.latencies.length) 
+          : 0,
+        errorRate: data.requests > 0 
+          ? Math.round((data.errors / data.requests) * 10000) / 100 
+          : 0
+      }))
+      .filter(e => e.endpoint !== 'unknown')
+      .sort((a, b) => b.requests - a.requests)
+      .slice(0, 10); // Show top 10 endpoints
   }
 
   selectInstrument(name: string): void {
